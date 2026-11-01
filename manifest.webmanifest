@@ -1,0 +1,16 @@
+{
+  "name": "식물 돌봄 노트",
+  "short_name": "식물 노트",
+  "description": "식물 물 주기와 비료 주기를 기록하는 앱",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef3ef",
+  "theme_color": "#2b7449",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

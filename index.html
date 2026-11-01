@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2b7449">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="식물 노트">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>식물 돌봄 노트</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* 레이아웃: 상단 탭(내 식물 / 도감) → 요약 → 카드 그리드 */
+  --bg:#eef3ef; --surface:#ffffff; --ink:#18271f; --muted:#56675d; --line:#d3ded6;
+  --leaf:#2b7449; --leaf-ink:#ffffff; --soft:#e1ebe4;
+  --water:#256fa8; --warn:#a85d0c; --bad:#b0342c;
+  --display:'Gowun Batang','Noto Serif KR',Georgia,serif;
+  --body:'Noto Sans KR',system-ui,-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1913; --surface:#17251d; --ink:#e5eee8; --muted:#9aaca1; --line:#2a3b31;
+    --leaf:#5cc08a; --leaf-ink:#0b1a11; --soft:#1f3226;
+    --water:#6bb4ea; --warn:#e3a553; --bad:#f0897f;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1913; --surface:#17251d; --ink:#e5eee8; --muted:#9aaca1; --line:#2a3b31;
+  --leaf:#5cc08a; --leaf-ink:#0b1a11; --soft:#1f3226;
+  --water:#6bb4ea; --warn:#e3a553; --bad:#f0897f;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
+body.lock{overflow:hidden}
+.wrap{max-width:760px;margin:0 auto;padding:max(28px,calc(env(safe-area-inset-top) + 12px)) max(16px,env(safe-area-inset-right)) max(56px,calc(env(safe-area-inset-bottom) + 24px)) max(16px,env(safe-area-inset-left))}
+h1,h2,h3{text-wrap:balance;margin:0}
+h1{font-family:var(--display);font-size:30px;line-height:1.2}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.date{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+.views{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--soft);padding:4px;border-radius:12px}
+.views button{font:inherit;font-weight:700;font-size:15px;padding:9px 8px;border:0;border-radius:9px;background:transparent;color:var(--muted);cursor:pointer}
+.views button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.summary{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.summary strong{font-family:var(--display);font-size:20px;display:block}
+.summary span{color:var(--muted);font-size:14px}
+.counts{display:flex;gap:10px}
+.count{min-width:84px;border-radius:10px;padding:8px 12px;background:var(--soft)}
+.count b{display:block;font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}
+.count small{color:var(--muted);font-size:12px}
+.count.water b{color:var(--water)}
+.count.fert b{color:var(--leaf)}
+.bar-tools{margin-top:22px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{font:inherit;font-size:14px;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,label:focus-within{outline:3px solid var(--water);outline-offset:2px}
+.primary{background:var(--leaf);color:var(--leaf-ink);border:0;border-radius:10px;padding:10px 16px;font-weight:700}
+.primary:hover{filter:brightness(1.08)}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:9px 12px;font-size:14px}
+.ghost:hover{border-color:var(--muted);color:var(--ink)}
+.notice{margin-top:14px;font-size:14px;color:var(--muted);background:var(--soft);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+form.add{margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:14px;grid-template-columns:1fr}
+form.add[hidden]{display:none}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:13px;color:var(--muted);font-weight:500}
+.field input{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-width:0}
+.field .hint{font-size:12px;color:var(--muted)}
+.form-actions{display:flex;gap:8px;justify-content:flex-end}
+.err{color:var(--bad);font-size:13px;min-height:1em;margin:0}
+.grid{margin-top:16px;display:grid;gap:12px;grid-template-columns:1fr}
+@media (min-width:640px){
+  .grid{grid-template-columns:1fr 1fr}
+  form.add{grid-template-columns:1fr 1fr}
+  form.add .full{grid-column:1 / -1}
+}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;border-left:5px solid var(--line)}
+.card.s-ok{border-left-color:var(--leaf)}
+.card.s-soon{border-left-color:var(--warn)}
+.card.s-due{border-left-color:var(--bad)}
+.card .head{display:flex;gap:12px;align-items:flex-start}
+.thumb{flex:none;width:60px;height:60px;border-radius:12px;overflow:hidden;background:var(--soft)}
+.thumb img,.thumb svg{display:block;width:100%;height:100%;object-fit:cover}
+.hd{flex:1;min-width:0}
+.card h3{font-family:var(--display);font-size:19px;line-height:1.25;overflow-wrap:anywhere}
+.sub{margin:2px 0 0;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.pill{flex:none;font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--soft);color:var(--leaf);font-variant-numeric:tabular-nums;white-space:nowrap}
+.s-soon .pill{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+.s-due .pill{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.gauge{height:8px;border-radius:999px;background:var(--soft);overflow:hidden}
+.gauge i{display:block;height:100%;border-radius:999px;background:var(--leaf)}
+.s-soon .gauge i{background:var(--warn)}
+.s-due .gauge i{background:var(--bad)}
+.meta{margin:0;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px;font-variant-numeric:tabular-nums}
+.meta .fert-due{color:var(--bad);font-weight:700}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
+.btn-water{background:var(--water);color:#fff;border:0;border-radius:10px;padding:9px 14px;font-weight:700;font-size:14px}
+:root[data-theme="dark"] .btn-water{color:#071521}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn-water{color:#071521}}
+.btn-fert{background:transparent;border:1px solid var(--leaf);color:var(--leaf);border-radius:10px;padding:8px 12px;font-weight:500;font-size:14px}
+.btn-del.confirm{border-color:var(--bad);color:var(--bad)}
+.photo-btn{display:inline-flex;align-items:center;cursor:pointer}
+.photo-btn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.empty{grid-column:1 / -1;text-align:center;color:var(--muted);padding:36px 16px;background:var(--surface);border:1px dashed var(--line);border-radius:14px}
+
+/* 도감 */
+.search{margin-top:18px;display:flex;gap:10px}
+.search input{flex:1;min-width:0;font:inherit;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}
+.chips{margin-top:12px}
+.note{margin:12px 0 0;font-size:12px;color:var(--muted)}
+.cgrid{margin-top:14px;display:grid;gap:12px;grid-template-columns:1fr 1fr}
+@media (min-width:640px){ .cgrid{grid-template-columns:repeat(3,1fr)} }
+.ccard{all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;text-align:left}
+.ccard:hover{border-color:var(--leaf)}
+.ccard:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+.ccard .art{aspect-ratio:5/4;background:var(--soft)}
+.ccard .art svg{display:block;width:100%;height:100%}
+.ccard .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
+.ccard h3{font-family:var(--display);font-size:17px;line-height:1.25}
+.badges{display:flex;gap:6px;flex-wrap:wrap}
+.badge{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.badge.own{background:var(--leaf);color:var(--leaf-ink);font-weight:700}
+.badge.warn{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.badge.ok{background:color-mix(in srgb,var(--leaf) 16%,transparent);color:var(--leaf)}
+
+/* 상세 시트 */
+.modal{position:fixed;inset:0;z-index:20;background:rgba(8,16,11,.55);display:flex;align-items:flex-end;justify-content:center}
+.modal[hidden]{display:none}
+.sheet{background:var(--bg);width:100%;max-width:640px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;padding-bottom:max(20px,env(safe-area-inset-bottom))}
+@media (min-width:700px){ .modal{align-items:center} .sheet{border-radius:20px;max-height:88%} }
+.sheet .art svg{display:block;width:100%;max-width:340px;height:auto;margin:0 auto}
+.sheet .inner{padding:16px 18px 6px;display:flex;flex-direction:column;gap:14px}
+.sheet h2{font-family:var(--display);font-size:26px;line-height:1.2}
+.sci{margin:2px 0 0;font-style:italic;color:var(--muted);font-size:14px}
+.close{position:sticky;top:10px;float:right;margin:10px 10px 0 0;z-index:2;width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:20px;line-height:1}
+.facts{margin:0;display:grid;grid-template-columns:auto 1fr;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
+.facts dt,.facts dd{margin:0;padding:10px 12px;border-bottom:1px solid var(--line);font-size:14px}
+.facts dt{color:var(--muted);font-weight:500;white-space:nowrap}
+.facts dt:last-of-type,.facts dd:last-of-type{border-bottom:0}
+.tips{margin:0;padding-left:18px;font-size:14px;color:var(--ink)}
+.tips li{margin:3px 0}
+.addbox{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}
+.addbox h3{font-size:16px}
+
+.toast{position:fixed;left:50%;bottom:max(20px,calc(env(safe-area-inset-bottom) + 8px));transform:translateX(-50%);z-index:30;background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:12px;font-size:14px;display:flex;gap:12px;align-items:center;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.25)}
+.toast[hidden]{display:none}
+.toast button{background:transparent;border:0;color:inherit;text-decoration:underline;font-weight:700;padding:0;white-space:nowrap;flex:none}
+.foot{margin-top:28px;font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){
+  .gauge i{transition:width .4s ease}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>식물 돌봄 노트</h1>
+    <div class="date" id="today"></div>
+  </div>
+
+  <div class="views" role="tablist" aria-label="화면 선택">
+    <button role="tab" id="vMine" aria-selected="true" aria-controls="viewMine">내 식물</button>
+    <button role="tab" id="vCat" aria-selected="false" aria-controls="viewCat">식물 도감</button>
+  </div>
+
+  <section id="viewMine" role="tabpanel" aria-labelledby="vMine">
+    <section class="summary" aria-live="polite">
+      <div>
+        <strong id="sumTitle"></strong>
+        <span id="sumSub"></span>
+      </div>
+      <div class="counts">
+        <div class="count water"><b id="cWater">0</b><small>물 줄 식물</small></div>
+        <div class="count fert"><b id="cFert">0</b><small>비료 줄 식물</small></div>
+      </div>
+    </section>
+
+    <div class="bar-tools">
+      <div class="tabs" role="group" aria-label="보기 필터">
+        <button class="tab" id="tabAll" aria-pressed="true">전체</button>
+        <button class="tab" id="tabTodo" aria-pressed="false">오늘 할 일</button>
+      </div>
+      <button class="primary" id="toggleAdd" aria-expanded="false" aria-controls="addForm">+ 직접 추가</button>
+    </div>
+
+    <div class="notice" id="sampleNotice" hidden>
+      <span>예시 식물이 들어 있어요. 도감에서 내 식물을 추가한 뒤 지워도 됩니다.</span>
+      <button class="ghost" id="clearSample">예시 지우기</button>
+    </div>
+
+    <form class="add" id="addForm" hidden autocomplete="off">
+      <div class="field">
+        <label for="fName">이름</label>
+        <input id="fName" maxlength="30" placeholder="예: 거실 몬스테라" required>
+      </div>
+      <div class="field">
+        <label for="fSpecies">종류</label>
+        <input id="fSpecies" maxlength="30" list="speciesList" placeholder="예: 몬스테라">
+        <datalist id="speciesList"></datalist>
+        <span class="hint" id="speciesHint">도감에 있는 식물을 고르면 물·비료 주기가 자동으로 채워져요.</span>
+      </div>
+      <div class="field">
+        <label for="fPlace">위치</label>
+        <input id="fPlace" maxlength="20" placeholder="예: 거실 창가">
+      </div>
+      <div class="field">
+        <label for="fLast">마지막으로 물 준 날</label>
+        <input id="fLast" type="date" required>
+      </div>
+      <div class="field">
+        <label for="fWater">물 주기 (일마다)</label>
+        <input id="fWater" type="number" min="1" max="365" value="7" inputmode="numeric" required>
+      </div>
+      <div class="field">
+        <label for="fFert">비료 주기 (일마다, 안 주면 0)</label>
+        <input id="fFert" type="number" min="0" max="365" value="0" inputmode="numeric">
+      </div>
+      <p class="err full" id="formErr" role="alert"></p>
+      <div class="form-actions full">
+        <button type="button" class="ghost" id="cancelAdd">취소</button>
+        <button type="submit" class="primary">저장</button>
+      </div>
+    </form>
+
+    <main class="grid" id="list"></main>
+  </section>
+
+  <section id="viewCat" role="tabpanel" aria-labelledby="vCat" hidden>
+    <div class="search">
+      <input id="q" type="search" placeholder="식물 이름 검색 (예: 몬스테라)" aria-label="식물 검색" autocomplete="off">
+    </div>
+    <div class="tabs chips" role="group" aria-label="도감 필터">
+      <button class="tab" data-f="all" aria-pressed="true">전체</button>
+      <button class="tab" data-f="easy" aria-pressed="false">초보 추천</button>
+      <button class="tab" data-f="pet" aria-pressed="false">반려동물 안전</button>
+      <button class="tab" data-f="shade" aria-pressed="false">그늘에서도 OK</button>
+    </div>
+    <div class="cgrid" id="catList"></div>
+    <p class="note">그림은 특징을 보여주려고 직접 그린 일러스트예요. 관리법은 일반적인 가이드라서 집 환경에 따라 조절하세요.</p>
+  </section>
+
+  <p class="foot">기록은 지금 쓰는 기기의 브라우저에만 저장돼요. 다른 기기에서는 보이지 않습니다.</p>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mTitle" id="sheet">
+    <button class="close" id="mClose" aria-label="닫기">×</button>
+    <div class="art" id="mArt"></div>
+    <div class="inner" id="mInner"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden>
+  <span id="toastMsg"></span>
+  <button id="toastUndo" hidden>되돌리기</button>
+</div>
+
+<script src="catalog.js"></script>
+<script src="illus.js"></script>
+<script>
+(function(){
+  var KEY = 'plantcare-v1';
+  var DAY = 86400000;
+  var CAT = {}; PLANT_CATALOG.forEach(function(c){ CAT[c.id] = c; });
+  var BYNAME = {}; PLANT_CATALOG.forEach(function(c){ BYNAME[c.n] = c; });
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+  function parse(s){ var p = s.split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
+  function today(){ var n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+  function addDays(s, n){ var d = parse(s); d.setDate(d.getDate() + n); return d; }
+  function diffDays(a, b){ return Math.round((a - b) / DAY); }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+  function daysAgo(n){ var d = today(); d.setDate(d.getDate() - n); return ymd(d); }
+
+  function seed(){
+    return [
+      {id:uid(), name:'거실 몬스테라', species:'몬스테라', catalogId:'monstera', place:'거실 창가', waterEvery:7, fertEvery:30, lastWater:daysAgo(9), lastFert:daysAgo(31), sample:true},
+      {id:uid(), name:'책상 스킨답서스', species:'스킨답서스', catalogId:'pothos', place:'책상 위', waterEvery:7, fertEvery:0, lastWater:daysAgo(7), lastFert:null, sample:true},
+      {id:uid(), name:'스투키', species:'스투키', catalogId:'stuckyi', place:'현관', waterEvery:21, fertEvery:0, lastWater:daysAgo(10), lastFert:null, sample:true}
+    ];
+  }
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(KEY);
+      if(raw){ var a = JSON.parse(raw); if(Array.isArray(a)) return a; }
+    }catch(e){}
+    return null;
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(plants)); return true; }catch(e){ return false; }
+  }
+
+  var plants = load() || seed();
+  var filter = 'all';
+  var catFilter = 'all';
+  var query = '';
+  var view = 'mine';
+  var confirmId = null, confirmTimer = null, lastAction = null, toastTimer = null;
+  var waterDirty = false, fertDirty = false;
+  var openerEl = null, openId = null;
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  function waterLeft(p){ return diffDays(addDays(p.lastWater, p.waterEvery), today()); }
+  function fertLeft(p){
+    if(!p.fertEvery) return null;
+    return diffDays(addDays(p.lastFert || p.lastWater, p.fertEvery), today());
+  }
+  function urgency(p){
+    var w = waterLeft(p), f = fertLeft(p);
+    return Math.min(w, f === null ? 9999 : f);
+  }
+  function stateOf(n){ return n <= 0 ? 'due' : (n <= 1 ? 'soon' : 'ok'); }
+  function pillText(n){
+    if(n < 0) return (-n) + '일 지남';
+    if(n === 0) return '오늘 물 주기';
+    if(n === 1) return '내일';
+    return n + '일 후';
+  }
+  function agoText(dateStr){
+    var n = diffDays(today(), parse(dateStr));
+    return n <= 0 ? '오늘' : n + '일 전';
+  }
+  function ownCount(id){ return plants.filter(function(p){ return p.catalogId === id; }).length; }
+  function art(c){ return illusSvg(c.il, c.pal, c.big, c.n); }
+
+  /* ---------- 내 식물 ---------- */
+  function thumbHtml(p){
+    if(p.photo){ return '<img src="' + p.photo + '" alt="' + esc(p.name) + ' 사진">'; }
+    var c = CAT[p.catalogId];
+    return c ? art(c) : illusSvg('tree','green',0,p.name);
+  }
+
+  function renderSummary(){
+    var t = today();
+    var wd = ['일','월','화','수','목','금','토'][t.getDay()];
+    $('today').textContent = t.getFullYear() + '년 ' + (t.getMonth()+1) + '월 ' + t.getDate() + '일 (' + wd + ')';
+    var w = 0, f = 0;
+    plants.forEach(function(p){
+      if(waterLeft(p) <= 0) w++;
+      var fl = fertLeft(p);
+      if(fl !== null && fl <= 0) f++;
+    });
+    $('cWater').textContent = w;
+    $('cFert').textContent = f;
+    if(!plants.length){
+      $('sumTitle').textContent = '아직 등록한 식물이 없어요';
+      $('sumSub').textContent = '식물 도감에서 키우는 식물을 골라 추가해 보세요.';
+    } else if(w + f === 0){
+      $('sumTitle').textContent = '오늘은 쉬어도 되는 날이에요';
+      $('sumSub').textContent = '등록한 식물 ' + plants.length + '개 모두 아직 여유가 있어요.';
+    } else {
+      $('sumTitle').textContent = '오늘 돌볼 식물이 있어요';
+      $('sumSub').textContent = '급한 순서대로 아래에 정렬했어요.';
+    }
+    $('sampleNotice').hidden = !plants.some(function(p){ return p.sample; });
+  }
+
+  function cardHtml(p){
+    var w = waterLeft(p), f = fertLeft(p);
+    var st = stateOf(w);
+    var pct = Math.max(0, Math.min(100, Math.round((p.waterEvery - w) / p.waterEvery * 100)));
+    var sub = [p.species, p.place].filter(Boolean).map(esc).join(' · ');
+    var meta = '<span>마지막 물 ' + agoText(p.lastWater) + '</span><span>주기 ' + p.waterEvery + '일</span>';
+    if(f !== null){
+      meta += f <= 0 ? '<span class="fert-due">비료 줄 때 (' + (f === 0 ? '오늘' : (-f) + '일 지남') + ')</span>'
+                     : '<span>비료 ' + f + '일 후</span>';
+    }
+    var fertBtn = (f !== null && f <= 0) ? '<button class="btn-fert" data-act="fert" data-id="' + p.id + '">비료 줬어요</button>' : '';
+    var isConfirm = confirmId === p.id;
+    return '<article class="card s-' + st + '">' +
+      '<div class="head"><div class="thumb">' + thumbHtml(p) + '</div>' +
+      '<div class="hd"><h3>' + esc(p.name) + '</h3>' + (sub ? '<p class="sub">' + sub + '</p>' : '') + '</div>' +
+      '<span class="pill">' + pillText(w) + '</span></div>' +
+      '<div class="gauge" role="img" aria-label="물 주기 진행 ' + pct + '%"><i style="width:' + pct + '%"></i></div>' +
+      '<p class="meta">' + meta + '</p>' +
+      '<div class="actions">' +
+        '<button class="btn-water" data-act="water" data-id="' + p.id + '">물 줬어요</button>' + fertBtn +
+        '<label class="ghost photo-btn">사진<input type="file" accept="image/*" data-photo="' + p.id + '"></label>' +
+        '<button class="ghost btn-del' + (isConfirm ? ' confirm' : '') + '" data-act="del" data-id="' + p.id + '">' + (isConfirm ? '정말 삭제' : '삭제') + '</button>' +
+      '</div></article>';
+  }
+
+  function renderList(){
+    var items = plants.slice().sort(function(a,b){ return urgency(a) - urgency(b); });
+    if(filter === 'todo'){
+      items = items.filter(function(p){
+        var f = fertLeft(p);
+        return waterLeft(p) <= 0 || (f !== null && f <= 0);
+      });
+    }
+    if(!items.length){
+      $('list').innerHTML = '<div class="empty">' + (filter === 'todo' ? '오늘 할 일이 없어요.' : '식물 도감에서 키우는 식물을 골라 추가해 보세요.') + '</div>';
+      return;
+    }
+    $('list').innerHTML = items.map(cardHtml).join('');
+  }
+
+  function renderMine(){ renderSummary(); renderList(); }
+
+  /* ---------- 도감 ---------- */
+  var PETTXT = {safe:'반려동물 비교적 안전', toxic:'반려동물 독성 주의', unknown:'반려동물 정보 불확실'};
+  var LVTXT = {1:'쉬움', 2:'보통', 3:'어려움'};
+
+  function renderCatalog(){
+    var q = query.trim().toLowerCase();
+    var items = PLANT_CATALOG.filter(function(c){
+      if(q && c.n.toLowerCase().indexOf(q) < 0 && c.sci.toLowerCase().indexOf(q) < 0) return false;
+      if(catFilter === 'easy') return c.lv === 1;
+      if(catFilter === 'pet') return c.pet === 'safe';
+      if(catFilter === 'shade') return !!c.shade;
+      return true;
+    });
+    if(!items.length){
+      $('catList').innerHTML = '<div class="empty" style="grid-column:1/-1">찾는 식물이 없어요. "내 식물" 탭에서 직접 추가할 수 있어요.</div>';
+      return;
+    }
+    $('catList').innerHTML = items.map(function(c){
+      var n = ownCount(c.id);
+      return '<button class="ccard" data-cat="' + c.id + '">' +
+        '<div class="art">' + art(c) + '</div>' +
+        '<div class="body"><h3>' + esc(c.n) + '</h3><div class="badges">' +
+        (n ? '<span class="badge own">키우는 중 ' + n + '</span>' : '') +
+        '<span class="badge">' + LVTXT[c.lv] + '</span>' +
+        (c.pet === 'safe' ? '<span class="badge ok">반려동물 OK</span>' : (c.pet === 'toxic' ? '<span class="badge warn">독성 주의</span>' : '')) +
+        '</div></div></button>';
+    }).join('');
+  }
+
+  function openDetail(id, el){
+    var c = CAT[id]; if(!c) return;
+    openId = id; openerEl = el || null;
+    $('mArt').innerHTML = art(c); $('mArt').style.background = (PALS[c.pal] || PALS.green).bg;
+    var n = ownCount(id);
+    var petClass = c.pet === 'safe' ? 'ok' : (c.pet === 'toxic' ? 'warn' : '');
+    var html = '<div><h2 id="mTitle">' + esc(c.n) + '</h2><p class="sci">' + esc(c.sci) + '</p></div>' +
+      '<div class="badges"><span class="badge">난이도 ' + LVTXT[c.lv] + '</span>' +
+      '<span class="badge ' + petClass + '">' + PETTXT[c.pet] + '</span>' +
+      (c.shade ? '<span class="badge">그늘 OK</span>' : '') +
+      (n ? '<span class="badge own">키우는 중 ' + n + '</span>' : '') + '</div>' +
+      '<p style="margin:0">' + esc(c.desc) + '</p>' +
+      '<dl class="facts">' +
+      '<dt>빛</dt><dd>' + esc(c.light) + '</dd>' +
+      '<dt>물</dt><dd>' + esc(c.water) + '</dd>' +
+      '<dt>비료</dt><dd>' + esc(c.fert) + '</dd>' +
+      '<dt>온도·습도</dt><dd>' + esc(c.climate) + '</dd>' +
+      '</dl>' +
+      '<ul class="tips">' + c.tips.map(function(t){ return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>' +
+      (c.pet !== 'safe' ? '<p class="note" style="margin:0">반려동물이 잎이나 줄기를 먹었다면 동물병원에 바로 문의하세요. 독성 정보는 일반 자료 기준이에요.</p>' : '') +
+      '<form class="addbox" id="mForm" autocomplete="off"><h3>내 식물로 추가</h3>' +
+      '<div class="field"><label for="mNick">부르는 이름</label><input id="mNick" maxlength="30" value="' + esc(c.n) + '"></div>' +
+      '<div class="field"><label for="mPlace">위치</label><input id="mPlace" maxlength="20" placeholder="예: 거실 창가"></div>' +
+      '<div class="field"><label for="mLast">마지막으로 물 준 날</label><input id="mLast" type="date" value="' + ymd(today()) + '" max="' + ymd(today()) + '" required></div>' +
+      '<p class="hint" style="margin:0;font-size:12px;color:var(--muted)">물 ' + c.we + '일마다' + (c.fe ? ', 비료 ' + c.fe + '일마다' : '') + ' 알려 드려요. 추가한 뒤에도 바꿀 수 있어요.</p>' +
+      '<button type="submit" class="primary">내 식물로 추가</button></form>';
+    $('mInner').innerHTML = html;
+    $('modal').hidden = false;
+    document.body.classList.add('lock');
+    $('sheet').scrollTop = 0;
+    $('mClose').focus();
+  }
+  function closeDetail(){
+    $('modal').hidden = true;
+    document.body.classList.remove('lock');
+    openId = null;
+    if(openerEl && document.body.contains(openerEl)){ try{ openerEl.focus(); }catch(e){} }
+  }
+
+  $('catList').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-cat]');
+    if(b) openDetail(b.getAttribute('data-cat'), b);
+  });
+  $('mClose').addEventListener('click', closeDetail);
+  $('modal').addEventListener('click', function(e){ if(e.target === $('modal')) closeDetail(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !$('modal').hidden) closeDetail(); });
+
+  $('mInner').addEventListener('submit', function(e){
+    if(e.target.id !== 'mForm') return;
+    e.preventDefault();
+    var c = CAT[openId]; if(!c) return;
+    var last = $('mLast').value;
+    if(!last){ $('mLast').focus(); return; }
+    var name = $('mNick').value.trim() || c.n;
+    plants.push({
+      id:uid(), name:name, species:c.n, catalogId:c.id, place:$('mPlace').value.trim(),
+      waterEvery:c.we, fertEvery:c.fe, lastWater:last, lastFert:c.fe ? last : null
+    });
+    save();
+    closeDetail();
+    setView('mine');
+    showToast(name + '을(를) 내 식물에 추가했어요.', false);
+  });
+
+  /* ---------- 화면 전환 ---------- */
+  function setView(v){
+    view = v;
+    $('viewMine').hidden = v !== 'mine';
+    $('viewCat').hidden = v !== 'cat';
+    $('vMine').setAttribute('aria-selected', v === 'mine');
+    $('vCat').setAttribute('aria-selected', v === 'cat');
+    if(v === 'mine') renderMine(); else renderCatalog();
+    window.scrollTo(0, 0);
+  }
+  $('vMine').addEventListener('click', function(){ setView('mine'); });
+  $('vCat').addEventListener('click', function(){ setView('cat'); });
+
+  $('q').addEventListener('input', function(){ query = $('q').value; renderCatalog(); });
+  document.querySelector('#viewCat .chips').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-f]'); if(!b) return;
+    catFilter = b.getAttribute('data-f');
+    Array.prototype.forEach.call(document.querySelectorAll('#viewCat .chips .tab'), function(t){
+      t.setAttribute('aria-pressed', t === b);
+    });
+    renderCatalog();
+  });
+
+  /* ---------- 토스트 ---------- */
+  function showToast(msg, undo){
+    $('toastMsg').textContent = msg;
+    $('toastUndo').hidden = !undo;
+    $('toast').hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ $('toast').hidden = true; lastAction = null; }, 5000);
+  }
+  function find(id){ for(var i=0;i<plants.length;i++){ if(plants[i].id === id) return plants[i]; } return null; }
+
+  /* ---------- 내 식물 동작 ---------- */
+  $('list').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-act]');
+    if(!btn) return;
+    var p = find(btn.getAttribute('data-id'));
+    if(!p) return;
+    var act = btn.getAttribute('data-act');
+    if(act === 'water'){
+      lastAction = {id:p.id, field:'lastWater', prev:p.lastWater};
+      p.lastWater = ymd(today());
+      save(); renderMine();
+      showToast(p.name + '에 물을 줬어요. 다음은 ' + p.waterEvery + '일 뒤예요.', true);
+    } else if(act === 'fert'){
+      lastAction = {id:p.id, field:'lastFert', prev:p.lastFert};
+      p.lastFert = ymd(today());
+      save(); renderMine();
+      showToast(p.name + '에 비료를 줬어요.', true);
+    } else if(act === 'del'){
+      if(confirmId === p.id){
+        plants = plants.filter(function(x){ return x.id !== p.id; });
+        confirmId = null; save(); renderMine();
+        showToast(p.name + ' 삭제했어요.', false);
+      } else {
+        confirmId = p.id; renderList();
+        clearTimeout(confirmTimer);
+        confirmTimer = setTimeout(function(){ confirmId = null; renderList(); }, 3000);
+      }
+    }
+  });
+
+  function resizeImg(file, max, cb){
+    var r = new FileReader();
+    r.onload = function(){
+      var im = new Image();
+      im.onload = function(){
+        var s = Math.min(1, max / Math.max(im.width, im.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        cb(c.toDataURL('image/jpeg', 0.8));
+      };
+      im.onerror = function(){ cb(null); };
+      im.src = r.result;
+    };
+    r.onerror = function(){ cb(null); };
+    r.readAsDataURL(file);
+  }
+  $('list').addEventListener('change', function(e){
+    var inp = e.target;
+    if(!inp.getAttribute || !inp.getAttribute('data-photo')) return;
+    var p = find(inp.getAttribute('data-photo'));
+    var file = inp.files && inp.files[0];
+    if(!p || !file) return;
+    resizeImg(file, 480, function(url){
+      if(!url){ showToast('사진을 불러오지 못했어요. 다른 사진으로 시도해 보세요.', false); return; }
+      var prev = p.photo;
+      p.photo = url;
+      if(!save()){ p.photo = prev; showToast('저장 공간이 부족해서 사진을 저장하지 못했어요.', false); return; }
+      renderMine();
+      showToast(p.name + ' 사진을 바꿨어요.', false);
+    });
+  });
+
+  $('toastUndo').addEventListener('click', function(){
+    if(!lastAction) return;
+    var p = find(lastAction.id);
+    if(p){ p[lastAction.field] = lastAction.prev; save(); renderMine(); }
+    lastAction = null;
+    $('toast').hidden = true;
+  });
+
+  function setTab(name){
+    filter = name;
+    $('tabAll').setAttribute('aria-pressed', name === 'all');
+    $('tabTodo').setAttribute('aria-pressed', name === 'todo');
+    renderList();
+  }
+  $('tabAll').addEventListener('click', function(){ setTab('all'); });
+  $('tabTodo').addEventListener('click', function(){ setTab('todo'); });
+
+  $('clearSample').addEventListener('click', function(){
+    plants = plants.filter(function(p){ return !p.sample; });
+    save(); renderMine();
+  });
+
+  /* ---------- 직접 추가 폼 ---------- */
+  $('speciesList').innerHTML = PLANT_CATALOG.map(function(c){ return '<option value="' + esc(c.n) + '">'; }).join('');
+
+  function openForm(){
+    $('addForm').hidden = false;
+    $('toggleAdd').setAttribute('aria-expanded', 'true');
+    $('fLast').value = ymd(today());
+    $('fLast').max = ymd(today());
+    waterDirty = false; fertDirty = false;
+    $('fName').focus();
+  }
+  function closeForm(){
+    $('addForm').hidden = true;
+    $('toggleAdd').setAttribute('aria-expanded', 'false');
+    $('addForm').reset();
+    $('formErr').textContent = '';
+    $('speciesHint').textContent = '도감에 있는 식물을 고르면 물·비료 주기가 자동으로 채워져요.';
+  }
+  $('toggleAdd').addEventListener('click', function(){ $('addForm').hidden ? openForm() : closeForm(); });
+  $('cancelAdd').addEventListener('click', closeForm);
+
+  $('fWater').addEventListener('input', function(){ waterDirty = true; });
+  $('fFert').addEventListener('input', function(){ fertDirty = true; });
+  $('fSpecies').addEventListener('input', function(){
+    var c = BYNAME[$('fSpecies').value.trim()];
+    if(!c) return;
+    if(!waterDirty) $('fWater').value = c.we;
+    if(!fertDirty) $('fFert').value = c.fe;
+    $('speciesHint').textContent = c.n + '은(는) 물 ' + c.we + '일마다' + (c.fe ? ', 비료 ' + c.fe + '일마다' : '') + ' 줘요. 필요하면 고치세요.';
+  });
+
+  $('addForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var name = $('fName').value.trim();
+    var we = parseInt($('fWater').value, 10);
+    var fe = parseInt($('fFert').value, 10) || 0;
+    var last = $('fLast').value;
+    if(!name){ $('formErr').textContent = '식물 이름을 입력하세요.'; return; }
+    if(!last){ $('formErr').textContent = '마지막으로 물 준 날을 고르세요.'; return; }
+    if(!(we >= 1 && we <= 365)){ $('formErr').textContent = '물 주기는 1일에서 365일 사이로 입력하세요.'; return; }
+    if(fe < 0 || fe > 365){ $('formErr').textContent = '비료 주기는 0일에서 365일 사이로 입력하세요.'; return; }
+    var sp = $('fSpecies').value.trim();
+    plants.push({
+      id:uid(), name:name, species:sp, catalogId:BYNAME[sp] ? BYNAME[sp].id : null, place:$('fPlace').value.trim(),
+      waterEvery:we, fertEvery:fe, lastWater:last, lastFert:fe ? last : null
+    });
+    save(); closeForm(); renderMine();
+    showToast(name + ' 추가했어요.', false);
+  });
+
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden && view === 'mine') renderMine(); });
+
+  renderMine();
+
+  if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+    window.addEventListener('load', function(){
+      try{ navigator.serviceWorker.register('sw.js').catch(function(){}); }catch(e){}
+    });
+  }
+})();
+</script>
+</body>
+</html>
